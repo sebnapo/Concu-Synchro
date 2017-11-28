@@ -1,4 +1,3 @@
-
 #
 #   Simulation d'une usine d'assemblage d'aeroplanes
 #
@@ -28,112 +27,99 @@ from tampon_fifo import Tampon_fifo, tampon_est_plein, tampon_est_vide, tampon_n
 from producteur_consommateur_moniteur import MoniteurProdCons, moniteur_deposer, moniteur_retirer
 tprint = print
 # A décommenter pour synchroniser l'affichage tprint()
-from tprint import tprint
+# from tprint import tprint
 
 
 
 class UsineAeroplane :
     def __init__(self, tailleMaxTamponsChaines=2):
-        tailleMax = 10
         # Les chaines d'assemblage
         self.chaines = ["aile", "roue", "carlingue", "moteur", "carlingue1Ailes2", "carlingue1Ailes2Roues3", "aeroplane"]
-        self.tailleMaxTamponsChaines = tailleMaxTamponsChaines
+        self.tailleMaxTamponsChaines=tailleMaxTamponsChaines
         # A completer: definir les tampons PC (bornés à tailleMax) entre les chaines servant à stocker les productions de chaque chaine
-        self.tCarlingue = MoniteurProdCons(Tampon_fifo(tailleMax))
-        self.tAile = MoniteurProdCons(Tampon_fifo(tailleMax))
-        self.tRoue = MoniteurProdCons(Tampon_fifo(tailleMax))
-        self.tMoteur = MoniteurProdCons(Tampon_fifo(tailleMax))
-        self.tAss1 = MoniteurProdCons(Tampon_fifo(tailleMaxTamponsChaines))
-        self.tAss2 = MoniteurProdCons(Tampon_fifo(tailleMaxTamponsChaines))
-        self.tAss3 = MoniteurProdCons(Tampon_fifo(tailleMaxTamponsChaines))
+        self.tCarlingue = MoniteurProdCons(Tampon_fifo(tailleMaxTamponsChaines))
+        self.tAile = MoniteurProdCons(Tampon_fifo(tailleMaxTamponsChaines))
+        self.tRoue = MoniteurProdCons(Tampon_fifo(tailleMaxTamponsChaines))
+        self.tMoteur = MoniteurProdCons(Tampon_fifo(tailleMaxTamponsChaines))
+        self.tC2A = MoniteurProdCons(Tampon_fifo(tailleMaxTamponsChaines))
+        self.tC2A3R = MoniteurProdCons(Tampon_fifo(tailleMaxTamponsChaines))
+        self.tC2A3R1M = MoniteurProdCons(Tampon_fifo(tailleMaxTamponsChaines))
+        
         self.mutex = threading.Lock()
-        self.CA1 = threading.Condition(self.mutex)
-        self.CA2 = threading.Condition(self.mutex)
-        self.CA3 = threading.Condition(self.mutex)
-
+        
+        self.cC2A = threading.Condition(self.mutex)
+        self.cC2A3R = threading.Condition(self.mutex)
+        self.cC2A3R1M = threading.Condition(self.mutex)
+        
 nbAvionsPrevus=5
-#tailleMaxTamponsChaines=2
-usine = UsineAeroplane()
+tailleMaxTamponsChaines=5
+usine = UsineAeroplane(tailleMaxTamponsChaines)
 
 def carlingue():
     for i in range(nbAvionsPrevus):
         time.sleep(random.randint(0, 3))
         tprint( 'Une carlingue est achevée ({})'.format(i+1))
         # A completer: deposer dans le tampon des carlingues
-        moniteur_deposer(usine.tCarlingue,"carlingue",1)
-        usine.CA1.notify()
+        moniteur_deposer(usine.tCarlingue, "carlingue" , i)
 
 def aile() :
     for i in range(nbAvionsPrevus*2):
         time.sleep(random.randint(0, 2))
         tprint( 'Une Aile est achevée ({})'.format(i+1))
         # A completer: deposer dans le tampon des ailes
-        moniteur_deposer(usine.tAile,"aile",1)
-        usine.CA1.notify()
+        moniteur_deposer(usine.tAile, "aile", i)
 
 def roue():
     for i in range(nbAvionsPrevus*3):
         time.sleep(random.randint(0, 2))
         tprint( 'Une roue est achevée ({})'.format(i+1))
         # A completer: deposer dans le tampon des roues
-        moniteur_deposer(usine.tRoue,"roue",1)
-        usine.CA2.notify()
-
+        moniteur_deposer(usine.tRoue, "roue", i)
 
 def moteur():
     for i in range(nbAvionsPrevus*2):
         time.sleep(random.randint(0, 1))
         tprint( 'Un moteur est achevé ({})'.format(i+1))
         # A completer: deposer dans le tampon des moteurs
-        moniteur_deposer(usine.tMoteur,"moteur",1)
-
+        moniteur_deposer(usine.tMoteur, "moteur", i)
 
 
 def carlingue1Ailes2():
     for i in range(nbAvionsPrevus):
         # A completer: retirer 1 carlingue et 2 ailes des tampons
-        while(tampon_nbElements(usine.tCarlingue) < 1 or tampon_nbElements(usine.tAile) < 2):
-            usine.CA1.wait()
-        usine.CA1.mutex.acquire()
-        moniteur_retirer(usine.tCarlingue,"carlingue")
-        moniteur_retirer(usine.tAile,"aile")
-        moniteur_retirer(usine.tAile,"aile")
+        moniteur_retirer(usine.tCarlingue, "Carlingue")
+        moniteur_retirer(usine.tAile, "Aile")
+        moniteur_retirer(usine.tAile, "Aile")
+        
         time.sleep(random.randint(0, 3))
         tprint( 'Un assemblage 1 carlingue avec 2 ailes est achevé ({})'.format(i+1))
         # A completer: deposer dans le tampon des carlingue1Ailes2
-        moniteur_deposer(usine.tAss1,"carlingue1Ailes2",1)
-        usine.CA1.mutex.release()
-        usine.CA2.notify()
+        moniteur_deposer(usine.tC2A, "C2A", i)
 
 def carlingue1Ailes2Roues3():
     for i in range(nbAvionsPrevus):
-        while(tampon_nbElements(usine.tAss1) < 1 or tampon_nbElements(usine.tRoue) < 3):
-            usine.CA2.wait()
-        # A completer: retirer 1 carlingue1Ailes2 et 3 roues des tampons
-        moniteur_retirer(usine.tAss1,"carlingue1Ailes2")
-        moniteur_retirer(usine.tRoue,"roue")
-        moniteur_retirer(usine.tRoue,"roue")
-        moniteur_retirer(usine.tRoue,"roue")
+        # A completer: retirer 1 carlingue1Ailes2 et 3 roues des tampon            
+        moniteur_retirer(usine.tRoue, "Roue")
+        moniteur_retirer(usine.tRoue, "Roue")
+        moniteur_retirer(usine.tRoue, "Roue")
+        moniteur_retirer(usine.tC2A, "C2A")
+        
         time.sleep(random.randint(0, 3))
         tprint( 'Un assemblage 1 carlingue et 2 ailes avec 3 roue est achevé ({})'.format(i+1))
         # A completer: deposer dans le tampon des carlingue1Ailes2Roues3
-        moniteur_deposer(usine.tAss2,"carlingue1Ailes2Roues3",1)
-        usine.CA3.notify()
-        
+        moniteur_deposer(usine.tC2A3R, "C2A3R", i)
 
 def aeroplane():
     for i in range(nbAvionsPrevus):
-        # A completer: retirer 1 carlingue1Ailes2Roues3 et 2 moteurs des tampons
-        while(tampon_nbElements(usine.tMoteur) < 2 or tampon_nbElements(usine.tAss2) < 1):
-            usine.CA3.wait()
-        moniteur_retirer(usine.tAss2,"carlingue1Ailes2Roues3")
-        moniteur_retirer(usine.tMoteur,"moteur")
-        moniteur_retirer(usine.tMoteur,"moteur")
+        # A completer: retirer 1 carlingue1Ailes2Roues3 et 2 moteurs des tampons        
+        moniteur_retirer(usine.tC2A3R, "C2A3R")
+        moniteur_retirer(usine.tMoteur, "Moteur")
+        moniteur_retirer(usine.tMoteur, "Moteur")
+        
         time.sleep(random.randint(0, 3))
         tprint( 'Un aeroplane est achevé ({})'.format(i+1))
         # A completer: deposer dans le tampon des aeroplane
-        moniteur_deposer(usine.tAss3,"aeroplane",1)
-        
+        moniteur_deposer(usine.tC2A3R1M, "C2A3R1M", i)
 
 #
 #  Test de l'usine d'assemblage d'aeroplanes
@@ -157,4 +143,3 @@ for t in threads.values() :
 
 #tprint( 'Etat usine : ' + etat_usine ( usine ) )
 tprint('Arret de l\'usine')
-
